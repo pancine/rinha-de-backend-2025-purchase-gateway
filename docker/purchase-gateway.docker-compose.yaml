@@ -1,0 +1,14 @@
+services:
+  purchase-gateway:
+    container_name: purchase-gateway
+    image: purchase-gateway
+    environment:
+      - PAYMENT_PROCESSOR_URL_DEFAULT=http://payment-processor-default:8080
+      - PAYMENT_PROCESSOR_URL_FALLBACK=http://payment-processor-fallback:8080
+    ports:
+      - 9999:8080
+        
+
+networks:
+  payment-processor:
+    external: true
