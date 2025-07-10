@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using PurchaseGateway.Api;
 using PurchaseGateway.Api.Models;
@@ -22,6 +23,7 @@ builder.Services.AddHostedService<PurchaseBackgroundService>();
 var app = builder.Build();
 
 var channelWriter = app.Services.GetRequiredService<Channel<PaymentRequest>>().Writer;
+var cache = app.Services.GetRequiredService<IMemoryCache>();
 var defaultPaymentService = app.Services.GetRequiredKeyedService<IPaymentService>(PaymentGatewaysEnum.Default);
 var fallbackPaymentService = app.Services.GetRequiredKeyedService<IPaymentService>(PaymentGatewaysEnum.Fallback);
 
@@ -32,18 +34,26 @@ app.MapPost("/payments", async (PaymentRequest request) =>
 
 app.MapGet("/payments-summary", async ([FromQuery] DateTime? from, [FromQuery] DateTime? to) =>
 {
-    // TODO: Get the summary
-
-    return new PaymentsSummaryResponse()
+    if (cache.TryGetValue<PaymentsSummaryResponse>(nameof(PaymentsSummaryResponse), out var response))
     {
-        Default = new ProcessedRequests(),
-        Fallback = new ProcessedRequests()
+        return response;
+    }
+
+    response = new PaymentsSummaryResponse()
+    {
+        Default = await defaultPaymentService.GetPaymentsSummaryAsync(),
+        Fallback = await fallbackPaymentService.GetPaymentsSummaryAsync()
     };
+
+    cache.Set(nameof(PaymentsSummaryResponse), response, DateTimeOffset.UtcNow.AddSeconds(5));
+
+    return response;
 });
 
 app.MapGet("/purge-db", async () =>
 {
-    defaultPaymentService.
+    await defaultPaymentService.PurgeDatabaseAsync();
+    await fallbackPaymentService.PurgeDatabaseAsync();
 });
 
 app.Run();

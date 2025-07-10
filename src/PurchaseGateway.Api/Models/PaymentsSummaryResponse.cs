@@ -2,12 +2,14 @@
 
 public class PaymentsSummaryResponse
 {
-    public required ProcessedRequests Default { get; set; }
-    public required ProcessedRequests Fallback { get; set; }
+    public required PaymentsSummary Default { get; set; }
+    public required PaymentsSummary Fallback { get; set; }
 }
 
-public class ProcessedRequests
+public class PaymentsSummary
 {
     public int TotalRequests { get; set; }
     public decimal TotalAmount { get; set; }
+    public decimal TotalFee { get; set; }
+    public decimal FeePerTransaction { get; set; }
 }
