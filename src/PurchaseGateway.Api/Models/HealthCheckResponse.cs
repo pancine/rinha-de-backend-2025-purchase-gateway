@@ -1,4 +1,4 @@
-﻿namespace PurchaseGateway.Models;
+﻿namespace PurchaseGateway.Api.Models;
 
 public class HealthCheckResponse
 {

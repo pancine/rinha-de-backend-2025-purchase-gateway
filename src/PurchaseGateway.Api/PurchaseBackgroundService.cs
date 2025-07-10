@@ -1,17 +1,34 @@
-﻿namespace PurchaseGateway;
+﻿using Microsoft.Extensions.Caching.Memory;
+using PurchaseGateway.Api.Models;
+using PurchaseGateway.Api.Services;
+using System.Threading.Channels;
 
-public class PurchaseBackgroundService(ILogger<PurchaseBackgroundService> logger) : BackgroundService
+namespace PurchaseGateway.Api;
+
+public class PurchaseBackgroundService(
+    Channel<PaymentRequest> channel,
+    IMemoryCache cache,
+    [FromKeyedServices(PaymentGatewaysEnum.Default)] IPaymentService defaultPaymentService,
+    [FromKeyedServices(PaymentGatewaysEnum.Fallback)] IPaymentService fallbackPaymentService) : BackgroundService
 {
-    private readonly ILogger<PurchaseBackgroundService> _logger = logger;
+    private readonly ChannelReader<PaymentRequest> _reader = channel.Reader;
+
+    private readonly IMemoryCache _cache = cache;
+    private readonly IPaymentService _defaultPaymentService = defaultPaymentService;
+    private readonly IPaymentService _fallbackPaymentService = fallbackPaymentService;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        while (!stoppingToken.IsCancellationRequested)
+        while (await _reader.WaitToReadAsync(stoppingToken))
         {
-            _logger.LogInformation("Get Service 1 status");
-            _logger.LogInformation("Get Service 2 status");
+            var request = await _reader.ReadAsync(stoppingToken);
 
-            await Task.Delay(5000, stoppingToken);
+            if ((PaymentGatewaysEnum)_cache.Get("USE_SERVICE") == PaymentGatewaysEnum.Default)
+            {
+                await _defaultPaymentService.ProcessAsync(request);
+                continue;
+            }
+            await _fallbackPaymentService.ProcessAsync(request);
         }
     }
 }

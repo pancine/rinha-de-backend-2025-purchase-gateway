@@ -1,9 +1,10 @@
-﻿using PurchaseGateway.Models;
+﻿using PurchaseGateway.Api.Models;
 
-namespace PurchaseGateway.Services;
+namespace PurchaseGateway.Api.Services;
 
 public interface IPaymentService
 {
-    Task<HealthCheckResponse> HealthCheck();
-    Task<bool> Process(ProcessRequest processRequest);
+    Task ProcessAsync(PaymentRequest request);
+
+    Task PurgeDatabaseAsync();
 }

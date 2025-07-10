@@ -1,0 +1,9 @@
+POST http://localhost:9999/payments
+Content-Type: application/json
+
+{
+  "correlationId": "d86ad457-9790-4e36-ba80-cc87427b4123",
+  "amount": 100.12
+}
+
+###

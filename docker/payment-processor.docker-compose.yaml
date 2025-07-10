@@ -1,3 +1,5 @@
+name: rinha-de-backend
+
 x-service-templates:
   payment-processor: &payment-processor
     image: zanfranceschi/payment-processor:amd64-20250707101540
