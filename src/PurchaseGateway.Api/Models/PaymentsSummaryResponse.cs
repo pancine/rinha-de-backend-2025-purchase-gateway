@@ -8,8 +8,6 @@ public class PaymentsSummaryResponse
 
 public class PaymentsSummary
 {
-    public int TotalRequests { get; set; }
+    public long TotalRequests { get; set; }
     public decimal TotalAmount { get; set; }
-    public decimal TotalFee { get; set; }
-    public decimal FeePerTransaction { get; set; }
 }

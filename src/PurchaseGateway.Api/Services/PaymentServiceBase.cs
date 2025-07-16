@@ -8,22 +8,14 @@ public class PaymentServiceBase : IPaymentService
 {
     protected readonly HttpClient _httpClient = new HttpClient();
 
-    public async Task<PaymentsSummary> GetPaymentsSummaryAsync()
-    {
-        var request = new HttpRequestMessage(HttpMethod.Get, "admin/payments-summary");
-        request.Headers.Add("X-Rinha-Token", "123");
-
-        var response = await _httpClient.SendAsync(request);
-
-        return JsonConvert.DeserializeObject<PaymentsSummary>(await response.Content.ReadAsStringAsync());
-    }
-
-    public Task ProcessAsync(PaymentRequest request)
+    public async Task<bool> ProcessAsync(PaymentRequest request)
     {
         request.RequestedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-        return _httpClient.PostAsync("payments",
+        var response = await _httpClient.PostAsync("payments",
             new StringContent(JsonConvert.SerializeObject(request), new MediaTypeHeaderValue("application/json"))
         );
+
+        return response.IsSuccessStatusCode;
     }
 
     public Task PurgeDatabaseAsync()
