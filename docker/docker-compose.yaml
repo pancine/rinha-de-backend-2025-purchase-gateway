@@ -1,0 +1,96 @@
+name: rinha-de-backend
+
+x-services:
+  purchase-gateway: &purchase-gateway
+    image: pancine/rinha-de-backend-2025-purchase-gateway:latest
+    environment:
+      - ConnectionStrings__Redis=purchase-gateway-db:6379
+      - ConnectionStrings__Postgres=Host=purchase-gateway-db;Username=postgres;Password=pwd;Database=purchases
+      - PAYMENT_PROCESSOR_URL_DEFAULT=http://payment-processor-default:8080
+      - PAYMENT_PROCESSOR_URL_FALLBACK=http://payment-processor-fallback:8080
+    networks:
+      - payment-processor
+      - purchase-gateway
+    volumes:
+      - healthcheck:/app/healthcheck
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: "150MB"
+    depends_on:
+      - payment-processor-health-check
+      - purchase-gateway-db
+
+services:
+  payment-processor-health-check:
+    image: pancine/rinha-de-backend-2025-hc:latest
+    container_name: payment-processor-health-check
+    environment:
+      - DEFAULT_HC_URL=http://payment-processor-default:8080/payments/service-health
+      - FALLBACK_HC_URL=http://payment-processor-fallback:8080/payments/service-health
+    networks:
+      - payment-processor
+    volumes:
+      - healthcheck:/app/healthcheck
+    deploy:
+      resources:
+        limits:
+          cpus: "0.05"
+          memory: "6MB"
+
+  purchase-gateway-db:
+    image: postgres:17
+    container_name: purchase-gateway-db
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=pwd
+      - POSTGRES_DB=purchases
+    ports:
+      - 5432:5432
+    networks:
+      - purchase-gateway
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: "30MB"
+
+  purchase-gateway-1:
+    <<: *purchase-gateway
+    container_name: purchase-gateway-1
+
+  purchase-gateway-2:
+    <<: *purchase-gateway
+    container_name: purchase-gateway-2
+
+  purchase-gateway-load-balancer:
+    image: nginx:latest
+    container_name: purchase-gateway-load-balancer
+    ports:
+      - 9999:9999
+    networks:
+      - payment-processor
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "14MB"
+    depends_on:
+      - purchase-gateway-1
+      - purchase-gateway-2
+
+networks:
+  payment-processor:
+    external: true
+
+  purchase-gateway:
+    name: purchase-gateway
+    driver: bridge
+
+volumes:
+  healthcheck:

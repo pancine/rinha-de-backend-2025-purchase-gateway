@@ -1,8 +1,7 @@
-
-CREATE UNLOGGED TABLE payments (
-    correlationId UUID PRIMARY KEY,
-    amount DECIMAL NOT NULL,
-    requested_at TIMESTAMP NOT NULL
+CREATE UNLOGGED TABLE purchase (
+    requested_at TIMESTAMP NOT NULL,
+    payment_gateway_used int NOT NULL,
+    amount DECIMAL NOT NULL
 );
 
-CREATE INDEX payments_requested_at ON payments (requested_at);
+CREATE INDEX purchase_rapgu_idx ON purchase (requested_at, payment_gateway_used);
