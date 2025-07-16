@@ -11,6 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddSingleton(Channel.CreateUnbounded<PaymentRequest>(new UnboundedChannelOptions { SingleReader = true }));
+builder.Services.AddSingleton(Channel.CreateUnbounded<Purchase>(new UnboundedChannelOptions { SingleReader = true }));
 
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton(new NpgsqlSlimDataSourceBuilder(builder.Configuration.GetConnectionString("Postgres")!).Build());
@@ -21,7 +22,7 @@ builder.Services.AddKeyedSingleton<IPaymentService, FallbackPaymentServices>(Pay
 
 builder.Services.AddHostedService<HealthCheckBackgroundService>();
 builder.Services.AddHostedService<PurchaseBackgroundService>();
-
+builder.Services.AddHostedService<PaymentsSummaryBackgroundService>();
 
 var app = builder.Build();
 

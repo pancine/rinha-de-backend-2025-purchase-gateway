@@ -4,28 +4,33 @@ using PurchaseGateway.Api.Models;
 
 namespace PurchaseGateway.Api;
 
-public class HealthCheckBackgroundService(IMemoryCache cache, ILogger<HealthCheckBackgroundService> logger) : BackgroundService
+public class HealthCheckBackgroundService(IMemoryCache cache) : BackgroundService
 {
     private readonly IMemoryCache _cache = cache;
-    private readonly ILogger<HealthCheckBackgroundService> _logger = logger;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var defaultHcContent = await File.ReadAllTextAsync("/app/healthcheck/default.json", stoppingToken);
-            var fallbackHcContent = await File.ReadAllTextAsync("/app/healthcheck/fallback.json", stoppingToken);
+            var results = await Task.WhenAll(
+                File.ReadAllTextAsync("/app/healthcheck/default.json", stoppingToken),
+                File.ReadAllTextAsync("/app/healthcheck/fallback.json", stoppingToken)
+            );
 
-            var defaultHc = JsonConvert.DeserializeObject<HealthCheckResponse>(defaultHcContent);
-            var fallbackHc = JsonConvert.DeserializeObject<HealthCheckResponse>(fallbackHcContent);
+            var defaultHc = JsonConvert.DeserializeObject<HealthCheckResponse>(results[0])!;
+            var fallbackHc = JsonConvert.DeserializeObject<HealthCheckResponse>(results[1])!;
 
-            if (!defaultHc.Failing)
+            if (!defaultHc.Failing && defaultHc.MinResponseTime / 4 < fallbackHc.MinResponseTime)
             {
                 _cache.Set("USE_SERVICE", PaymentGatewaysEnum.Default);
             }
-            else
+            else if (!fallbackHc.Failing)
             {
                 _cache.Set("USE_SERVICE", PaymentGatewaysEnum.Fallback);
+            }
+            else
+            {
+                _cache.Remove("USE_SERVICE");
             }
 
             await Task.Delay(5000, stoppingToken);
