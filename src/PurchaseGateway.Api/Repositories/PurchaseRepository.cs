@@ -1,41 +1,36 @@
 ﻿using Npgsql;
 using PurchaseGateway.Api.Models;
-using System.Data;
 using System.Text;
+using Z.Dapper.Plus;
 
 namespace PurchaseGateway.Api.Repositories;
 
-public class PaymentsSummaryRepository(NpgsqlDataSource dataSource) : IPaymentsSummaryRepository
+public class PurchaseRepository(NpgsqlDataSource dataSource) : IPurchaseRepository
 {
     private readonly NpgsqlDataSource _dataSource = dataSource;
 
-    public async Task<bool> InsertRangeAsync(List<Purchase> payments)
+    public async Task<bool> InsertAsync(Purchase purchase)
     {
-        var sql = new StringBuilder();
-        sql.AppendLine("INSERT INTO purchase (requested_at, payment_gateway_used, amount) VALUES");
-
-        var parameters = new List<NpgsqlParameter>();
-        for (int i = 0; i < payments.Count; i++)
-        {
-            sql.Append($"(@requested_at_{i}, @payment_gateway_used_{i}, @amount_{i}),");
-
-            var payment = payments[i];
-            parameters.Add(new NpgsqlParameter($"@requested_at_{i}", payment.RequestedAt));
-            parameters.Add(new NpgsqlParameter($"@payment_gateway_used_{i}", payment.PaymentGatewayUsed));
-            parameters.Add(new NpgsqlParameter($"@amount_{i}", payment.Amount));
-        }
-        sql.Length--;
-
-        Console.WriteLine(sql.ToString());
+        var sql = "INSERT INTO purchase (id, requested_at, payment_gateway_used, amount) VALUES (@id, @requested_at, @payment_gateway_used, @amount)";
 
         await using var connection = await _dataSource.OpenConnectionAsync();
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = sql.ToString();
-        cmd.Parameters.AddRange(parameters.ToArray());
+        cmd.Parameters.Add(new NpgsqlParameter("id", Guid.Parse(purchase.CorrelationId)));
+        cmd.Parameters.Add(new NpgsqlParameter("requested_at", purchase.RequestedAt));
+        cmd.Parameters.Add(new NpgsqlParameter("payment_gateway_used", purchase.PaymentGatewayUsed));
+        cmd.Parameters.Add(new NpgsqlParameter("amount", purchase.Amount));
 
         var rowsAffected = await cmd.ExecuteNonQueryAsync();
 
-        return payments.Count == rowsAffected;
+        return rowsAffected == 1;
+    }
+
+    public async Task InsertRangeAsync(List<Purchase> purchases)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync();
+
+        var result = await connection.BulkInsertAsync(purchases);
     }
 
     public async Task<PaymentsSummaryResponse> GetPaymentsSummaryAsync(DateTime? from = null, DateTime? to = null)
@@ -63,17 +58,15 @@ public class PaymentsSummaryRepository(NpgsqlDataSource dataSource) : IPaymentsS
 
         while (await reader.ReadAsync())
         {
-            if (reader.GetInt32("payment_gateway_used") == 0)
+            if (reader.GetInt32(reader.GetOrdinal("payment_gateway_used")) == 0)
             {
-                result.Default.TotalAmount = reader.GetDecimal("sum");
-                result.Default.TotalRequests = reader.GetInt64("count");
-                result.Default.TotalRequests = reader.GetInt64("count");
+                result.Default.TotalAmount = reader.GetDecimal(reader.GetOrdinal("sum"));
+                result.Default.TotalRequests = reader.GetInt64(reader.GetOrdinal("count"));
                 continue;
             }
 
-            result.Fallback.TotalAmount = reader.GetDecimal("sum");
-            result.Fallback.TotalRequests = reader.GetInt64("count");
-            result.Fallback.TotalRequests = reader.GetInt64("count");
+            result.Fallback.TotalAmount = reader.GetDecimal(reader.GetOrdinal("sum"));
+            result.Fallback.TotalRequests = reader.GetInt64(reader.GetOrdinal("count"));
         }
 
         return result;

@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.13.35825.156
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PurchaseGateway.Api", "PurchaseGateway.Api\PurchaseGateway.Api.csproj", "{D82BD1CC-03A7-43D5-A071-0A67783E2B0E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PurchaseGateway.Api", "PurchaseGateway.Api\PurchaseGateway.Api.csproj", "{90AED485-D7DA-4CFA-8A8F-1AD0BFF053B5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,10 +11,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{D82BD1CC-03A7-43D5-A071-0A67783E2B0E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D82BD1CC-03A7-43D5-A071-0A67783E2B0E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D82BD1CC-03A7-43D5-A071-0A67783E2B0E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D82BD1CC-03A7-43D5-A071-0A67783E2B0E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{90AED485-D7DA-4CFA-8A8F-1AD0BFF053B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{90AED485-D7DA-4CFA-8A8F-1AD0BFF053B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{90AED485-D7DA-4CFA-8A8F-1AD0BFF053B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{90AED485-D7DA-4CFA-8A8F-1AD0BFF053B5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

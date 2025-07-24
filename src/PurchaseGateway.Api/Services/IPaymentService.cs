@@ -4,6 +4,8 @@ namespace PurchaseGateway.Api.Services;
 
 public interface IPaymentService
 {
-    Task<bool> ProcessAsync(PaymentRequest request);
+    Task<HealthCheckResponse> HealthCheckAsync();
+    Task<bool> ProcessAsync(Purchase purchase);
+
     Task PurgeDatabaseAsync();
 }

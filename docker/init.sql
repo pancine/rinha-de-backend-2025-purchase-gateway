@@ -1,6 +1,7 @@
 CREATE UNLOGGED TABLE purchase (
-    requested_at TIMESTAMP NOT NULL,
-    payment_gateway_used int NOT NULL,
+    id char(36) PRIMARY KEY,
+    requested_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    payment_gateway_used INT NOT NULL,
     amount DECIMAL NOT NULL
 );
 

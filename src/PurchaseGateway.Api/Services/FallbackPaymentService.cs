@@ -1,8 +1,8 @@
 ﻿namespace PurchaseGateway.Api.Services;
 
-public class FallbackPaymentServices : PaymentServiceBase, IPaymentService
+public class FallbackPaymentService : PaymentServiceBase, IPaymentService
 {
-    public FallbackPaymentServices()
+    public FallbackPaymentService()
     {
         var defaultUri = Environment.GetEnvironmentVariable("PAYMENT_PROCESSOR_URL_FALLBACK")
             ?? throw new ArgumentNullException("PAYMENT_PROCESSOR_URL_FALLBACK");
