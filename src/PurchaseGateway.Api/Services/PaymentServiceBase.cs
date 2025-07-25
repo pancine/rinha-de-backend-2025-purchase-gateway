@@ -8,11 +8,6 @@ public class PaymentServiceBase : IPaymentService
 {
     protected readonly HttpClient _httpClient = new HttpClient();
 
-    private static readonly JsonSerializerSettings JsonSerializerSettings = new JsonSerializerSettings()
-    {
-        DateFormatString = "yyyy-MM-ddTHH:mm:ssZ",
-    }; 
-
     public async Task<HealthCheckResponse> HealthCheckAsync()
     {
         var response = await _httpClient.GetAsync("payments/service-health");
@@ -24,7 +19,7 @@ public class PaymentServiceBase : IPaymentService
 
     public async Task<bool> TryProcessAsync(Purchase request)
     {
-        var content = new StringContent(JsonConvert.SerializeObject(request, JsonSerializerSettings),
+        var content = new StringContent(JsonConvert.SerializeObject(request),
             new MediaTypeHeaderValue("application/json"));
 
         var response = await _httpClient.PostAsync("payments", content);
