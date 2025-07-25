@@ -1,4 +1,5 @@
-﻿using Npgsql;
+﻿using Dapper;
+using Npgsql;
 using PurchaseGateway.Api.Models;
 using System.Text;
 using Z.Dapper.Plus;
@@ -9,19 +10,12 @@ public class PurchaseRepository(NpgsqlDataSource dataSource) : IPurchaseReposito
 {
     private readonly NpgsqlDataSource _dataSource = dataSource;
 
+    const string INSERT_QUERY = "INSERT INTO purchase (id, requested_at, payment_gateway_used, amount) VALUES (@CorrelationId, @RequestedAt, @PaymentGatewayUsed, @Amount)";
+
     public async Task<bool> InsertAsync(Purchase purchase)
     {
-        var sql = "INSERT INTO purchase (id, requested_at, payment_gateway_used, amount) VALUES (@id, @requested_at, @payment_gateway_used, @amount)";
-
         await using var connection = await _dataSource.OpenConnectionAsync();
-        await using var cmd = connection.CreateCommand();
-        cmd.CommandText = sql.ToString();
-        cmd.Parameters.Add(new NpgsqlParameter("id", Guid.Parse(purchase.CorrelationId)));
-        cmd.Parameters.Add(new NpgsqlParameter("requested_at", purchase.RequestedAt));
-        cmd.Parameters.Add(new NpgsqlParameter("payment_gateway_used", purchase.PaymentGatewayUsed));
-        cmd.Parameters.Add(new NpgsqlParameter("amount", purchase.Amount));
-
-        var rowsAffected = await cmd.ExecuteNonQueryAsync();
+        var rowsAffected = await connection.ExecuteAsync(INSERT_QUERY, purchase);
 
         return rowsAffected == 1;
     }
@@ -29,47 +23,43 @@ public class PurchaseRepository(NpgsqlDataSource dataSource) : IPurchaseReposito
     public async Task InsertRangeAsync(List<Purchase> purchases)
     {
         await using var connection = await _dataSource.OpenConnectionAsync();
-
         var result = await connection.BulkInsertAsync(purchases);
     }
 
     public async Task<PaymentsSummaryResponse> GetPaymentsSummaryAsync(DateTime? from = null, DateTime? to = null)
     {
-        var sql = new StringBuilder("SELECT payment_gateway_used, SUM(amount), COUNT(1) FROM purchase ");
+        var sql = new StringBuilder("SELECT payment_gateway_used, SUM(amount), COUNT(*) FROM purchase ");
 
-        var parameters = new List<NpgsqlParameter>(2);
         if (from.HasValue && to.HasValue)
         {
             sql.Append("WHERE requested_at > @from and requested_at < @to ");
-            parameters.Add(new NpgsqlParameter("from", from.Value));
-            parameters.Add(new NpgsqlParameter("to", to.Value));
         }
         sql.Append("GROUP BY payment_gateway_used");
 
-        await using var cmd = _dataSource.CreateCommand(sql.ToString());
-        cmd.Parameters.AddRange(parameters.ToArray());
+        await using var connection = await _dataSource.OpenConnectionAsync();
+        var queryResult = await connection.QueryAsync<(int paymentGatewayUsed, decimal totalAmount, long totalRequests)>
+            (sql.ToString(), new { from, to });
 
-        await using var reader = await cmd.ExecuteReaderAsync();
-        var result = new PaymentsSummaryResponse()
+        var paymentsSummary = new PaymentsSummaryResponse()
         {
             Default = new PaymentsSummary(),
             Fallback = new PaymentsSummary()
         };
 
-        while (await reader.ReadAsync())
+        foreach (var (paymentGatewayUsed, totalAmount, totalRequests) in queryResult)
         {
-            if (reader.GetInt32(reader.GetOrdinal("payment_gateway_used")) == 0)
+            if (paymentGatewayUsed == 0)
             {
-                result.Default.TotalAmount = reader.GetDecimal(reader.GetOrdinal("sum"));
-                result.Default.TotalRequests = reader.GetInt64(reader.GetOrdinal("count"));
+                paymentsSummary.Default.TotalAmount = totalAmount;
+                paymentsSummary.Default.TotalRequests = totalRequests;
                 continue;
             }
 
-            result.Fallback.TotalAmount = reader.GetDecimal(reader.GetOrdinal("sum"));
-            result.Fallback.TotalRequests = reader.GetInt64(reader.GetOrdinal("count"));
+            paymentsSummary.Fallback.TotalAmount = totalAmount;
+            paymentsSummary.Fallback.TotalRequests = totalRequests;
         }
 
-        return result;
+        return paymentsSummary;
     }
 
     public async Task PurgeAsync()

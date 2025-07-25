@@ -22,7 +22,7 @@ public class PaymentServiceBase : IPaymentService
         return hc ?? new HealthCheckResponse();
     }
 
-    public async Task<bool> ProcessAsync(Purchase request)
+    public async Task<bool> TryProcessAsync(Purchase request)
     {
         var content = new StringContent(JsonConvert.SerializeObject(request, JsonSerializerSettings),
             new MediaTypeHeaderValue("application/json"));

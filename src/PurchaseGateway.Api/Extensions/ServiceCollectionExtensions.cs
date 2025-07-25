@@ -20,7 +20,6 @@ public static class ServiceCollectionExtensions
         services.AddKeyedScoped<IPaymentService, FallbackPaymentService>(nameof(FallbackPaymentService));
 
         services.AddSingleton(Channel.CreateUnbounded<PaymentsRequest>(new UnboundedChannelOptions { SingleWriter = true }));
-        services.AddSingleton(Channel.CreateUnbounded<Purchase>());
 
         services.AddScoped<IPurchaseRepository, PurchaseRepository>();
 

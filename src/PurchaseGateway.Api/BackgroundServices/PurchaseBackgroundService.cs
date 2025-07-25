@@ -15,14 +15,12 @@ public class PurchaseBackgroundService : BackgroundService
     private readonly IPaymentService _defaultService;
     private readonly IPaymentService _fallbackService;
     private readonly IPurchaseRepository _repository;
-    //private readonly ChannelWriter<Purchase> _databaseWriter;
 
     public PurchaseBackgroundService(Channel<PaymentsRequest> paymentsChannel,
         IMemoryCache memoryCache,
         [FromKeyedServices(nameof(DefaultPaymentService))] IPaymentService defaultService,
         [FromKeyedServices(nameof(FallbackPaymentService))] IPaymentService fallbackService,
-        IPurchaseRepository repository,
-        Channel<Purchase> databaseChannel)
+        IPurchaseRepository repository)
     {
         _paymentsReader = paymentsChannel.Reader;
         _paymentsWriter = paymentsChannel.Writer;
@@ -30,13 +28,10 @@ public class PurchaseBackgroundService : BackgroundService
         _defaultService = defaultService;
         _fallbackService = fallbackService;
         _repository = repository;
-        //_databaseWriter = databaseChannel.Writer;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var entitiesToInsert = new List<Purchase>(200);
-
         while (await _paymentsReader.WaitToReadAsync(stoppingToken))
         {
             var paymentsRequest = await _paymentsReader.ReadAsync(stoppingToken);
@@ -48,27 +43,33 @@ public class PurchaseBackgroundService : BackgroundService
                 RequestedAt = DateTime.UtcNow
             };
 
-            switch (_memoryCache.Get<int>("use"))
+            var useService = _memoryCache.Get<int>("use");
+            switch (useService)
             {
                 case 0:
-                    purchase.PaymentGatewayUsed = 0;
-                    await Task.WhenAll(
-                        _defaultService.ProcessAsync(purchase),
-                        _repository.InsertAsync(purchase)
-                    );
+                    if (!await _defaultService.TryProcessAsync(purchase))
+                    {
+                        await Task.Delay(1000, stoppingToken);
+                        await _paymentsWriter.WriteAsync(paymentsRequest, stoppingToken);
+                        continue;
+                    }
                     break;
                 case 1:
-                    purchase.PaymentGatewayUsed = 1;
-                    await Task.WhenAll(
-                        _fallbackService.ProcessAsync(purchase),
-                        _repository.InsertAsync(purchase)
-                    );
+                    if (!await _fallbackService.TryProcessAsync(purchase))
+                    {
+                        await Task.Delay(1000, stoppingToken);
+                        await _paymentsWriter.WriteAsync(paymentsRequest, stoppingToken);
+                        continue;
+                    }
                     break;
                 default:
                     await Task.Delay(1000, stoppingToken);
                     await _paymentsWriter.WriteAsync(paymentsRequest, stoppingToken);
                     continue;
             }
+
+            purchase.PaymentGatewayUsed = useService;
+            await _repository.InsertAsync(purchase);
         }
     }
 }
