@@ -1,4 +1,4 @@
-name: rinha-de-backend
+name: rinha-de-backend-payment-services
 
 x-service-templates:
   payment-processor: &payment-processor
