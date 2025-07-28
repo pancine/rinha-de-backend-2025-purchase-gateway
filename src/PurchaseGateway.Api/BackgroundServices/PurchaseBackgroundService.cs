@@ -1,6 +1,4 @@
-﻿
-using Microsoft.Extensions.Caching.Memory;
-using PurchaseGateway.Api.Models;
+﻿using PurchaseGateway.Api.Models;
 using PurchaseGateway.Api.Repositories;
 using PurchaseGateway.Api.Services;
 using System.Threading.Channels;
@@ -11,20 +9,17 @@ public class PurchaseBackgroundService : BackgroundService
 {
     private readonly ChannelReader<PaymentsRequest> _paymentsReader;
     private readonly ChannelWriter<PaymentsRequest> _paymentsWriter;
-    private readonly IMemoryCache _memoryCache;
     private readonly IPaymentService _defaultService;
     private readonly IPaymentService _fallbackService;
     private readonly IPurchaseRepository _repository;
 
     public PurchaseBackgroundService(Channel<PaymentsRequest> paymentsChannel,
-        IMemoryCache memoryCache,
         [FromKeyedServices(nameof(DefaultPaymentService))] IPaymentService defaultService,
         [FromKeyedServices(nameof(FallbackPaymentService))] IPaymentService fallbackService,
         IPurchaseRepository repository)
     {
         _paymentsReader = paymentsChannel.Reader;
         _paymentsWriter = paymentsChannel.Writer;
-        _memoryCache = memoryCache;
         _defaultService = defaultService;
         _fallbackService = fallbackService;
         _repository = repository;
@@ -43,33 +38,22 @@ public class PurchaseBackgroundService : BackgroundService
                 RequestedAt = DateTime.UtcNow
             };
 
-            var useService = _memoryCache.Get<int>("use");
-            switch (useService)
+            if (await _defaultService.TryProcessAsync(purchase))
             {
-                case 0:
-                    if (!await _defaultService.TryProcessAsync(purchase))
-                    {
-                        await Task.Delay(1000, stoppingToken);
-                        await _paymentsWriter.WriteAsync(paymentsRequest, stoppingToken);
-                        continue;
-                    }
-                    break;
-                case 1:
-                    if (!await _fallbackService.TryProcessAsync(purchase))
-                    {
-                        await Task.Delay(1000, stoppingToken);
-                        await _paymentsWriter.WriteAsync(paymentsRequest, stoppingToken);
-                        continue;
-                    }
-                    break;
-                default:
-                    await Task.Delay(1000, stoppingToken);
-                    await _paymentsWriter.WriteAsync(paymentsRequest, stoppingToken);
-                    continue;
+                purchase.PaymentGatewayUsed = 0;
+                await _repository.InsertAsync(purchase);
+                continue;
             }
 
-            purchase.PaymentGatewayUsed = useService;
-            await _repository.InsertAsync(purchase);
+            if (await _fallbackService.TryProcessAsync(purchase))
+            {
+                purchase.PaymentGatewayUsed = 1;
+                await _repository.InsertAsync(purchase);
+                continue;
+            }
+
+            await Task.Delay(1000, stoppingToken);
+            await _paymentsWriter.WriteAsync(paymentsRequest, stoppingToken);
         }
     }
 }
