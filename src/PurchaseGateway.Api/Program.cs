@@ -12,17 +12,20 @@ builder.Services.ConfigureServices(configuration);
 
 var app = builder.Build();
 
+
 var channel = app.Services.GetRequiredService<Channel<PaymentsRequest>>();
 app.MapPost("/payments", async ([FromBody] PaymentsRequest paymentsRequest) =>
 {
     await channel.Writer.WriteAsync(paymentsRequest);
 });
 
+
 var repository = app.Services.GetRequiredService<IPurchaseRepository>();
 app.MapGet("/payments-summary", async ([FromQuery] DateTime? from, [FromQuery] DateTime? to) =>
 {
     return await repository.GetPaymentsSummaryAsync(from, to);
 });
+
 
 var defaultService = app.Services.GetRequiredKeyedService<IPaymentService>(nameof(DefaultPaymentService));
 var fallbackService = app.Services.GetRequiredKeyedService<IPaymentService>(nameof(FallbackPaymentService));
@@ -34,5 +37,6 @@ app.MapGet("/purge-db", async () =>
         repository.PurgeAsync()
     );
 });
+
 
 app.Run();

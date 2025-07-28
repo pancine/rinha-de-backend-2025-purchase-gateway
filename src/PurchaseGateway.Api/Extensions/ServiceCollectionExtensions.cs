@@ -12,8 +12,6 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection ConfigureServices(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddMemoryCache();
-        services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(configuration.GetConnectionString("Redis")!));
         services.AddSingleton(NpgsqlDataSource.Create(configuration.GetConnectionString("Postgres")!));
 
         services.AddKeyedScoped<IPaymentService, DefaultPaymentService>(nameof(DefaultPaymentService));
@@ -22,8 +20,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(Channel.CreateUnbounded<PaymentsRequest>(new UnboundedChannelOptions { SingleWriter = true }));
 
         services.AddScoped<IPurchaseRepository, PurchaseRepository>();
-
-        services.AddSingleton<IHostedService, HealthCheckBackgroundService>();
 
         var workers = configuration.GetValue<int>("PURCHASE_WORKERS");
         for (int i = 0; i < workers; i++)
