@@ -2,7 +2,7 @@ name: rinha-de-backend-purchase-gateway
 
 x-services:
   api: &api
-    image: pancine/rinha-de-backend-2025-purchase-gateway:latest
+    image: pancine/rinha-de-backend-2025-purchase-gateway:1.0.0-aot
     environment:
       - ConnectionStrings__Postgres=Host=postgres;Username=postgres;Password=pwd;Database=purchases
       - PAYMENT_PROCESSOR_URL_DEFAULT=http://payment-processor-default:8080
@@ -22,14 +22,14 @@ x-services:
 
 services:
   load-balancer:
-    image: nginx:latest
+    image: haproxy:lts
     container_name: load-balancer
     ports:
       - 9999:9999
     networks:
       - purchase-gateway
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     deploy:
       resources:
         limits:

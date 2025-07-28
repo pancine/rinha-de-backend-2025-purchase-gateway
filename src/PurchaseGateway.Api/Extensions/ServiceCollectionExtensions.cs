@@ -3,7 +3,7 @@ using PurchaseGateway.Api.BackgroundServices;
 using PurchaseGateway.Api.Models;
 using PurchaseGateway.Api.Repositories;
 using PurchaseGateway.Api.Services;
-using StackExchange.Redis;
+using System.Text.Json.Serialization;
 using System.Threading.Channels;
 
 namespace PurchaseGateway.Api.Extensions;
@@ -12,6 +12,11 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection ConfigureServices(this IServiceCollection services, IConfiguration configuration)
     {
+        services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
+        });
+
         services.AddSingleton(NpgsqlDataSource.Create(configuration.GetConnectionString("Postgres")!));
 
         services.AddKeyedScoped<IPaymentService, DefaultPaymentService>(nameof(DefaultPaymentService));
@@ -30,3 +35,9 @@ public static class ServiceCollectionExtensions
         return services;
     }
 }
+
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(PaymentsRequest))]
+[JsonSerializable(typeof(PaymentsSummaryResponse))]
+internal partial class AppJsonSerializerContext : JsonSerializerContext
+{ }

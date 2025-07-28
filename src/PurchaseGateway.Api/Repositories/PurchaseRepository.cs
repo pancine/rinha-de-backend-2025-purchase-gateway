@@ -2,7 +2,6 @@
 using Npgsql;
 using PurchaseGateway.Api.Models;
 using System.Text;
-using Z.Dapper.Plus;
 
 namespace PurchaseGateway.Api.Repositories;
 
@@ -12,6 +11,7 @@ public class PurchaseRepository(NpgsqlDataSource dataSource) : IPurchaseReposito
 
     const string INSERT_QUERY = "INSERT INTO purchase (id, requested_at, payment_gateway_used, amount) VALUES (@CorrelationId, @RequestedAt, @PaymentGatewayUsed, @Amount)";
 
+    [DapperAot]
     public async Task<bool> InsertAsync(Purchase purchase)
     {
         await using var connection = await _dataSource.OpenConnectionAsync();
@@ -20,15 +20,10 @@ public class PurchaseRepository(NpgsqlDataSource dataSource) : IPurchaseReposito
         return rowsAffected == 1;
     }
 
-    public async Task InsertRangeAsync(List<Purchase> purchases)
-    {
-        await using var connection = await _dataSource.OpenConnectionAsync();
-        var result = await connection.BulkInsertAsync(purchases);
-    }
-
+    [DapperAot]
     public async Task<PaymentsSummaryResponse> GetPaymentsSummaryAsync(DateTime? from = null, DateTime? to = null)
     {
-        var sql = new StringBuilder("SELECT payment_gateway_used, SUM(amount), COUNT(*) FROM purchase ");
+        var sql = new StringBuilder("SELECT payment_gateway_used as PaymentGatewayUsed, SUM(amount) as TotalAmount, COUNT(*) as TotalRequests FROM purchase ");
 
         if (from.HasValue && to.HasValue)
         {
@@ -37,8 +32,7 @@ public class PurchaseRepository(NpgsqlDataSource dataSource) : IPurchaseReposito
         sql.Append("GROUP BY payment_gateway_used");
 
         await using var connection = await _dataSource.OpenConnectionAsync();
-        var queryResult = await connection.QueryAsync<(int paymentGatewayUsed, decimal totalAmount, long totalRequests)>
-            (sql.ToString(), new { from, to });
+        var queryResult = await connection.QueryAsync<PaymentsSummaryAggregationResult>(sql.ToString(), new { from, to });
 
         var paymentsSummary = new PaymentsSummaryResponse()
         {
@@ -46,22 +40,23 @@ public class PurchaseRepository(NpgsqlDataSource dataSource) : IPurchaseReposito
             Fallback = new PaymentsSummary()
         };
 
-        foreach (var (paymentGatewayUsed, totalAmount, totalRequests) in queryResult)
+        foreach (var aggregationResult in queryResult)
         {
-            if (paymentGatewayUsed == 0)
+            if (aggregationResult.PaymentGatewayUsed == 0)
             {
-                paymentsSummary.Default.TotalAmount = totalAmount;
-                paymentsSummary.Default.TotalRequests = totalRequests;
+                paymentsSummary.Default.TotalAmount = aggregationResult.TotalAmount;
+                paymentsSummary.Default.TotalRequests = aggregationResult.TotalRequests;
                 continue;
             }
 
-            paymentsSummary.Fallback.TotalAmount = totalAmount;
-            paymentsSummary.Fallback.TotalRequests = totalRequests;
+            paymentsSummary.Fallback.TotalAmount = aggregationResult.TotalAmount;
+            paymentsSummary.Fallback.TotalRequests = aggregationResult.TotalRequests;
         }
 
         return paymentsSummary;
     }
 
+    [DapperAot]
     public async Task PurgeAsync()
     {
         await using var cmd = _dataSource.CreateCommand("DELETE FROM purchase WHERE 1=1;");

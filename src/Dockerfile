@@ -1,5 +1,6 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 
+RUN apt-get update && apt-get install -y --no-install-recommends clang zlib1g-dev && rm -rf /var/cache/apk/* 
 WORKDIR /app
 COPY PurchaseGateway.Api/PurchaseGateway.Api.csproj PurchaseGateway.Api/
 RUN dotnet restore PurchaseGateway.Api/PurchaseGateway.Api.csproj
