@@ -10,7 +10,7 @@ public class PaymentServiceBase : IPaymentService
 
     public async Task<HealthCheckResponse> HealthCheckAsync()
     {
-        var response = await _httpClient.GetAsync("payments/service-health");
+        using var response = await _httpClient.GetAsync("payments/service-health");
 
         var hc = JsonConvert.DeserializeObject<HealthCheckResponse>(await response.Content.ReadAsStringAsync());
 
@@ -22,7 +22,7 @@ public class PaymentServiceBase : IPaymentService
         var content = new StringContent(JsonConvert.SerializeObject(request),
             new MediaTypeHeaderValue("application/json"));
 
-        var response = await _httpClient.PostAsync("payments", content);
+        using var response = await _httpClient.PostAsync("payments", content);
 
         return response.IsSuccessStatusCode;
     }
